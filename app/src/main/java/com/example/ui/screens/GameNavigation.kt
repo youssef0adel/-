@@ -1344,16 +1344,11 @@ fun DiscussionScreen(viewModel: GameViewModel, state: RoomState) {
 fun VotingScreen(viewModel: GameViewModel, state: RoomState) {
     val context = LocalContext.current
     
-    // Track which players have voted
-    val votedPlayers = state.votingResults?.keys ?: emptySet()
+    // Get alive players and track voting progress
     val alivePlayers = state.players.filter { it.isAlive }
     
-    // Determine current voter based on sequential voting
-    val currentVoterIndex = state.currentVotingPlayerIndex
-    val currentVoter = alivePlayers.getOrNull(currentVoterIndex)
-    
-    // Check if all players have voted
-    val allVoted = votedPlayers.containsAll(alivePlayers.map { it.id })
+    // Determine current voter based on activePassPlayerIndex
+    val currentVoter = state.players.getOrNull(state.activePassPlayerIndex)
     
     Column(
         modifier = Modifier
@@ -1374,7 +1369,7 @@ fun VotingScreen(viewModel: GameViewModel, state: RoomState) {
             shape = RoundedCornerShape(12.dp)
         ) {
             Text(
-                text = "تم التصويت: ${votedPlayers.size} من ${alivePlayers.size}",
+                text = "الدور على: ${currentVoter?.name ?: "غير معروف"}",
                 color = GoldShine,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
@@ -1387,51 +1382,9 @@ fun VotingScreen(viewModel: GameViewModel, state: RoomState) {
         
         Spacer(modifier = Modifier.height(12.dp))
         
-        if (allVoted && state.mode == "PASS_AND_PLAY") {
-            // All players voted - show proceed button for host
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Default.HowToVote,
-                    contentDescription = "All votes cast",
-                    tint = GoldShine,
-                    modifier = Modifier.size(80.dp)
-                )
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Text(
-                    "كل اللعيبة صوتوا",
-                    color = GoldShine,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
-                )
-                
-                Spacer(modifier = Modifier.height(20.dp))
-                
-                Button(
-                    onClick = { viewModel.processVotesAndAnnounceResults() },
-                    colors = ButtonDefaults.buttonColors(containerColor = RedAccent),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .testTag("process_all_votes_button"),
-                    contentPadding = PaddingValues(18.dp)
-                ) {
-                    Text(
-                        "نشوف النتايج",
-                        color = Color.White,
-                        fontWeight = FontWeight.ExtraBold,
-                        fontSize = 20.sp
-                    )
-                }
-            }
-        } else if (currentVoter != null && !allVoted) {
+        if (currentVoter != null) {
             // Show voting interface for current voter
-            var selectedTargetId by remember(currentVoterIndex) { mutableStateOf("") }
+            var selectedTargetId by remember(currentVoter.id) { mutableStateOf("") }
             
             ParchmentCard(
                 modifier = Modifier.weight(1f),
@@ -1513,7 +1466,7 @@ fun VotingScreen(viewModel: GameViewModel, state: RoomState) {
                     if (selectedTargetId.isBlank()) {
                         Toast.makeText(context, "لازم تختار حد عشان تصوت", Toast.LENGTH_SHORT).show()
                     } else {
-                        viewModel.submitVote(currentVoter.id, selectedTargetId)
+                        viewModel.submitVote(selectedTargetId)
                     }
                 },
                 colors = ButtonDefaults.buttonColors(containerColor = DarkWoodButton),
@@ -1527,39 +1480,18 @@ fun VotingScreen(viewModel: GameViewModel, state: RoomState) {
                 Text("أكد الصوت", color = GoldShine, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp)
             }
         } else {
-            // Waiting for other players to vote (LAN mode)
+            // No current voter (shouldn't happen, but handle gracefully)
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.Center
-                ) {
-                    CircularProgressIndicator(
-                        color = GoldShine,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    
-                    Spacer(modifier = Modifier.height(20.dp))
-                    
-                    Text(
-                        "مستنيين باقي اللعيبة يصوتوا",
-                        color = PapyrusBgLight,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
-                    
-                    Spacer(modifier = Modifier.height(10.dp))
-                    
-                    Text(
-                        "خلص التصويت: ${votedPlayers.size} من ${alivePlayers.size}",
-                        color = PapyrusTextSecondary,
-                        fontSize = 14.sp,
-                        textAlign = TextAlign.Center
-                    )
-                }
+                Text(
+                    "جاري تجهيز التصويت...",
+                    color = PapyrusBgLight,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
             }
         }
     }
